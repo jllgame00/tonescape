@@ -68,15 +68,16 @@ def test_darkness_decreases_lightness():
     assert all(d["hsl"][2] < b["hsl"][2] for d, b in zip(dark, bright))
 
 
-def test_warmth_moves_from_cool_blue_to_warm_orange():
-    cool = palette_from_axes(axes(warmth=0, dreaminess=0))[0]["hsl"][0]
-    warm = palette_from_axes(axes(warmth=100, dreaminess=0))[0]["hsl"][0]
-    assert 190 <= cool <= 250
-    assert 0 <= warm <= 65
+def test_warmth_only_nudges_the_existing_genre_hue():
+    for base in (20, 70, 200, 260, 355):
+        for warmth in (0, 50, 100):
+            hue = palette_from_axes(axes(warmth=warmth, dreaminess=0), base_hue=base)[0]["hsl"][0]
+            distance = abs((hue - base + 180) % 360 - 180)
+            assert distance <= 8.1
 
 
 def test_warm_dreamy_keeps_warm_identity():
-    warm = palette_from_axes(axes(warmth=100, dreaminess=100))[0]["hsl"][0]
+    warm = palette_from_axes(axes(warmth=100, dreaminess=100), base_hue=30)[0]["hsl"][0]
     assert warm < 80 or warm > 320
 
 

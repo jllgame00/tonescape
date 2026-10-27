@@ -4,6 +4,8 @@ Vectors are (energy, warmth, dreaminess, darkness, tension), all 0..100.
 Keep multi-word genres distinct before falling back to genre families.
 """
 
+from typing import NamedTuple
+
 AXES = ("energy", "warmth", "dreaminess", "darkness", "tension")
 LEXICON = {
     "rock": (78, 52, 28, 52, 72),
@@ -68,6 +70,90 @@ LEXICON = {
     "instrumental": (40, 53, 66, 40, 30),
     "romantic": (28, 84, 70, 28, 15),
     "calm": (10, 65, 72, 22, 5),
+    "rap metal": (94, 40, 20, 82, 94),
+    "rapcore": (94, 45, 18, 72, 94),
+    "glam metal": (87, 57, 30, 55, 75),
+    "folk metal": (84, 65, 42, 63, 78),
+}
+
+
+class HueProfile(NamedTuple):
+    primary: float
+    supporting: float
+    family: str
+    influence: float = 1.0
+
+
+# Hue identity is independent of the mood axes. All entries have an explicit
+# policy; broad descriptors are weak voters and 'dark'/'energetic' change only
+# lightness/saturation. A family never maps straight to a finished HEX color.
+HUE_PROFILES = {
+    "rock": HueProfile(12, 30, "burnt red"),
+    "indie rock": HueProfile(20, 210, "terracotta"),
+    "dreamy": HueProfile(245, 215, "lavender", 0.25),
+    "shoegaze": HueProfile(252, 215, "lavender"),
+    "ambient": HueProfile(192, 215, "cyan"),
+    "metal": HueProfile(355, 18, "crimson"),
+    "jazz": HueProfile(38, 350, "amber"),
+    "electronic": HueProfile(195, 265, "cyan"),
+    "folk": HueProfile(70, 42, "olive"),
+    "punk": HueProfile(4, 65, "red"),
+    "ballad": HueProfile(22, 345, "peach", 0.8),
+    "pop": HueProfile(10, 215, "coral"),
+    "indie": HueProfile(210, 20, "muted blue"),
+    "alternative": HueProfile(18, 215, "terracotta"),
+    "alternative rock": HueProfile(14, 32, "burnt red"),
+    "hard rock": HueProfile(8, 28, "burnt red"),
+    "classic rock": HueProfile(24, 42, "burnt orange"),
+    "hip hop": HueProfile(46, 275, "gold"),
+    "rap": HueProfile(44, 270, "gold"),
+    "rnb": HueProfile(345, 38, "burgundy"),
+    "soul": HueProfile(350, 45, "burgundy"),
+    "funk": HueProfile(28, 285, "orange"),
+    "disco": HueProfile(30, 95, "orange"),
+    "house": HueProfile(190, 255, "cyan"),
+    "techno": HueProfile(205, 270, "electric blue"),
+    "trance": HueProfile(220, 265, "electric blue"),
+    "synthpop": HueProfile(215, 330, "bright blue"),
+    "synthwave": HueProfile(275, 200, "violet"),
+    "classical": HueProfile(225, 45, "navy"),
+    "orchestral": HueProfile(230, 48, "navy"),
+    "acoustic": HueProfile(38, 68, "ochre"),
+    "singer songwriter": HueProfile(50, 30, "ochre"),
+    "blues": HueProfile(220, 35, "deep blue"),
+    "country": HueProfile(42, 65, "ochre"),
+    "reggae": HueProfile(100, 48, "olive green"),
+    "post rock": HueProfile(215, 40, "slate blue"),
+    "post punk": HueProfile(205, 18, "slate blue"),
+    "emo": HueProfile(350, 215, "crimson"),
+    "psychedelic": HueProfile(280, 28, "violet"),
+    "lo fi": HueProfile(40, 205, "ochre", 0.7),
+    "chill": HueProfile(185, 210, "cyan", 0.25),
+    "melancholic": HueProfile(215, 245, "slate blue", 0.2),
+    "sad": HueProfile(210, 230, "slate blue", 0.2),
+    "happy": HueProfile(40, 15, "gold", 0.25),
+    "dark": HueProfile(210, 210, "neutral", 0),
+    "atmospheric": HueProfile(205, 235, "slate blue", 0.25),
+    "ethereal": HueProfile(215, 255, "dusty blue", 0.25),
+    "energetic": HueProfile(210, 210, "neutral", 0),
+    "mellow": HueProfile(42, 25, "ochre", 0.2),
+    "experimental": HueProfile(280, 170, "violet", 0.4),
+    "dance": HueProfile(200, 285, "electric blue", 0.6),
+    "dream pop": HueProfile(250, 215, "lavender"),
+    "heavy metal": HueProfile(350, 12, "crimson"),
+    "death metal": HueProfile(354, 18, "crimson"),
+    "black metal": HueProfile(352, 210, "crimson"),
+    "progressive rock": HueProfile(18, 215, "terracotta"),
+    "trip hop": HueProfile(270, 42, "deep violet"),
+    "drum and bass": HueProfile(195, 275, "cyan"),
+    "downtempo": HueProfile(190, 225, "cyan"),
+    "instrumental": HueProfile(210, 210, "neutral", 0),
+    "romantic": HueProfile(18, 345, "peach", 0.3),
+    "calm": HueProfile(195, 215, "cyan", 0.2),
+    "rap metal": HueProfile(2, 28, "crimson"),
+    "rapcore": HueProfile(8, 35, "burnt red"),
+    "glam metal": HueProfile(15, 40, "burnt red"),
+    "folk metal": HueProfile(25, 65, "burnt orange"),
 }
 ALIASES = {
     "hiphop": "hip hop", "r b": "rnb", "r and b": "rnb",
@@ -79,6 +165,7 @@ ALIASES = {
     "electronica": "electronic", "psychedelia": "psychedelic",
     "alternative indie": "indie", "alt rock": "alternative rock",
     "k pop": "pop", "j pop": "pop", "kpop": "pop", "jpop": "pop",
+    "k rock": "rock", "krock": "rock", "j rock": "rock", "jrock": "rock",
 }
 IGNORED = {
     "korean", "japanese", "british", "american", "english", "french",

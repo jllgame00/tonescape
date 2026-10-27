@@ -1,20 +1,16 @@
-"""Pure deterministic tag -> mood -> HSL engine (version 1).
+"""Pure deterministic tag -> mood + circular hue -> HSL engine (version 2).
 
 Counts are sqrt-scaled to reduce popular-tag dominance. A single neutral
 pseudoweight regularizes sparse evidence without introducing randomness.
 Canonical sorting and deduplication make results independent of input order.
 """
 
-import colorsys
 import math
 import re
 import unicodedata
 
 from app.services.tag_lexicon import ALIASES, AXES, IGNORED, LEXICON
-
-
-def clamp(value, low=0, high=100):
-    return min(high, max(low, value))
+from app.services.color_engine import clamp, hue_identity, hue_name, palette_from_axes
 
 
 def normalize_tag(name):
@@ -56,44 +52,6 @@ def prepare_tags(tags):
     return sorted(unique.items(), key=lambda t: (-t[1], t[0]))[:50]
 
 
-def contrast_text(rgb):
-    def luminance(values):
-        linear = [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in values]
-        return sum(v * c for v, c in zip(linear, (0.2126, 0.7152, 0.0722)))
-    light = luminance(rgb)
-    # Pure black/white guarantees at least 4.5:1 for normal-size HEX labels.
-    return "#FFFFFF" if 1.05 / (light + 0.05) > (light + 0.05) / 0.05 else "#000000"
-
-
-def palette_from_axes(axes):
-    e, w, d, k, t = (clamp(float(axes.get(a, 50))) / 100 for a in AXES)
-    # A continuous circular path: cyan -> violet -> magenta -> amber.
-    hue = (220 + 180 * w) % 360
-    # Dreaminess nudges toward lavender along the shortest arc. Warmth reduces
-    # this nudge, preserving warm dreamy tracks instead of painting all blue.
-    blend = 0.24 * d * (1 - 0.65 * w)
-    hue = (hue + ((275 - hue + 180) % 360 - 180) * blend) % 360
-    saturation = 27 + 51 * e
-    lightness = 67 - 34 * k
-    spread = 12 + 122 * t
-    specs = [
-        ("Primary", hue, saturation, lightness),
-        ("Secondary", hue + 13 + 20 * (1 - d), saturation - 8 - 10 * d, lightness - 7),
-        ("Accent", hue - spread, saturation + 7, lightness + 7 + 8 * t),
-        ("Soft", hue + 10, saturation * (0.58 - 0.15 * d), lightness + 17 + 4 * d),
-        ("Background", hue - 8, saturation * 0.35, 16 - 7 * k),
-    ]
-    palette = []
-    for label, h, s, l in specs:
-        h, s, l = round(h % 360, 1), round(clamp(s, 10, 88), 1), round(clamp(l, 8, 88), 1)
-        rgb = colorsys.hls_to_rgb(h / 360, l / 100, s / 100)
-        hex_value = "#" + "".join(f"{round(v * 255):02X}" for v in rgb)
-        # Use quantized RGB for the contrast comparison, matching the HEX.
-        quantized = tuple(int(hex_value[i:i + 2], 16) / 255 for i in (1, 3, 5))
-        palette.append({"label": label, "hex": hex_value, "hsl": [h, s, l], "text": contrast_text(quantized)})
-    return palette
-
-
 def mood_keywords(axes):
     pairs = [
         ("dreaminess", "Dreamy", "Grounded"), ("energy", "Energetic", "Calm"),
@@ -105,43 +63,61 @@ def mood_keywords(axes):
     return words if any(abs(v - 50) > 8 for v in axes.values()) else ["Balanced", "Soft", "Understated"]
 
 
-def explain(axes, fallback):
+def explain(axes, fallback, identity, source):
     if fallback:
         return "Too few interpretable mood tags were available. A neutral baseline creates this balanced palette; it does not describe the song's sound."
-    warmth = "Warm hues" if axes["warmth"] >= 60 else "Cool hues" if axes["warmth"] <= 40 else "Violet and transitional hues"
-    energy = "vivid saturation" if axes["energy"] >= 65 else "muted saturation" if axes["energy"] <= 35 else "balanced saturation"
+    evidence = sorted(identity["tags"], key=lambda vote: (-vote["weight"], vote["tag"]))[:3]
+    names = ", ".join(vote["tag"] for vote in evidence)
+    origin = (f"The {names} tags set a {hue_name(identity['base_hue'])} base palette. " if evidence else
+              "No hue-bearing genre or mood tags were available, so the palette uses a neutral slate base. ")
+    if identity["method"] == "dominant_tag":
+        origin += f"Conflicting hue votes nearly cancelled, so {identity['dominant_tag']} sets the base hue. "
+        if identity["tie_break_used"]:
+            origin += "The strongest weights are equal; the deterministic tie-break uses lowest hue, then tag name. "
+    energy = "tempered saturation" if source == "artist" else "vivid saturation" if axes["energy"] >= 65 else "muted saturation" if axes["energy"] <= 35 else "balanced saturation"
     darkness = "deeper tones" if axes["darkness"] >= 60 else "lighter tones" if axes["darkness"] <= 40 else "mid-range lightness"
-    dream = " A lavender undertone and softer secondary colors reflect the dreamy tags." if axes["dreaminess"] >= 60 else ""
-    tension = " A contrasting accent reflects higher tension." if axes["tension"] >= 60 else " Closely related accent hues keep the palette gentle." if axes["tension"] <= 40 else " The accent adds moderate contrast."
-    return f"{warmth} follow the warmth score, while energy sets {energy} and darkness creates {darkness}.{dream}{tension}"
+    dream = " High dreaminess softens supporting colors and narrows their hue spread without changing the primary hue." if axes["dreaminess"] >= 60 else ""
+    tension = " Higher tension widens the accent contrast." if axes["tension"] >= 60 else " Low tension keeps the accent close and gentle." if axes["tension"] <= 40 else " Moderate tension adds a measured accent contrast."
+    artist = " Artist fallback has 45% source influence, reducing saturation, accent contrast and confidence because artist-wide tags may not describe this track." if source == "artist" else ""
+    return f"{origin}Energy sets {energy}, while darkness creates {darkness}. Warmth only makes a small hue adjustment.{dream}{tension}{artist}"
 
 
 def analyze_tags(tags, source="track"):
     prepared = prepare_tags(tags)
     resolved = [(name, count, resolve_tag(name)) for name, count in prepared]
     used = [(name, count, match) for name, count, match in resolved if match][:12]
-    evidence = [(name, count, match, math.sqrt(count) * match[2]) for name, count, match in used]
+    source_weight = 0.45 if source == "artist" else 1.0
+    evidence = [(name, count, match, math.sqrt(count) * match[2] * source_weight) for name, count, match in used]
     total = sum(weight for _, _, _, weight in evidence)
     axes = {
         axis: round((50 + sum(match[1][i] * weight for _, _, match, weight in evidence)) / (1 + total), 1)
         for i, axis in enumerate(AXES)
     }
-    coverage = total / sum(math.sqrt(count) for _, count in prepared) if prepared else 0
-    confidence = round(clamp(100 * coverage * min(1, len(used) / 4) ** 0.5 * (0.7 if source == "artist" else 1)))
+    # Coverage describes interpreted tag weight independent of source. Apply
+    # the source discount ONCE to confidence, not again through coverage.
+    coverage = sum(math.sqrt(count) * match[2] for _, count, match in used) / sum(math.sqrt(count) for _, count in prepared) if prepared else 0
+    confidence = round(clamp(100 * coverage * min(1, len(used) / 4) ** 0.5 * source_weight))
     contributions = [
         {"tag": name, "matched": match[0], "count": count, "share": round(weight / total * 100, 1),
          "match_quality": match[2], "axes": dict(zip(AXES, match[1])),
+         "effective_weight": weight,
          "contribution": {axis: round(match[1][i] * weight / (1 + total), 2) for i, axis in enumerate(AXES)}}
         for name, count, match, weight in evidence
     ]
-    palette = palette_from_axes(axes)
+    identity = hue_identity(contributions)
+    palette = palette_from_axes(axes, base_hue=identity["base_hue"], supporting_hue=identity["supporting_hue"], influence=source_weight if used else 0)
+    identity["primary_hue"] = palette[0]["hsl"][0]
+    notice = "Low confidence — limited mood tags were available." if confidence < 50 else None
+    if source == "artist":
+        notice = "Low confidence — limited mood tags were available. Artist fallback uses 45% source influence because artist-wide tags may not describe this track."
     dreamy = axes["dreaminess"] / 100
     stops = [f"{palette[4]['hex']} 0%", f"{palette[1]['hex']} {round(42 + 15 * dreamy)}%", f"{palette[0]['hex']} 100%"]
     return {
-        "engine_version": "1.0", "axes": axes, "confidence": confidence,
+        "engine_version": "2.0", "axes": axes, "confidence": confidence,
+        "source_weight": source_weight, "color_identity": identity,
         "coverage": round(coverage * 100, 1), "fallback": not used,
         "contributions": contributions, "keywords": mood_keywords(axes),
         "palette": palette, "gradient": "linear-gradient(125deg, " + ", ".join(stops) + ")",
-        "explanation": explain(axes, not used),
-        "notice": "Low confidence — limited mood tags were available." if confidence < 50 else None,
+        "explanation": explain(axes, not used, identity, source),
+        "notice": notice,
     }

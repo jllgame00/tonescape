@@ -29,18 +29,21 @@ Last.fm 외부 HTTP만 MockTransport로 대체하고 parser·fallback·routes는
 - LASTFM_API_KEY는 서버 환경변수에만 저장. .env는 Git ignore.
 - Timeout, User-Agent, 오류 분류, TTL cache로 외부 API 실패에 대응한다.
 
-공식 문서는 확인했다. 키 없이 진행하기로 하여 **실제 정상 API 응답은 미검증**이다.
+공식 문서는 확인했다. Color Engine v2 검증 시 키가 설정되어 있었으나 두 곡의 실제
+조회는 네트워크 오류로 실패했다. **이번 수정의 실제 정상 API 응답은 미검증**이다.
 Mock fixture는 공식 sample structure를 참고한 합성 데이터이며 라이브 캡처가 아니다.
 
 ## Mood Engine 핵심
 
 1. normalize/alias/deduplicate → non-mood/invalid count 제외
 2. 의미 있는 상위 12개 tag와 sqrt(count), family-match 0.6 가중치 사용
-3. `(50 + Σ(vector × weight)) / (1 + Σweight)`로 neutral prior와 가중 평균
+3. `(50 + Σ(vector × weight)) / (1 + Σweight)`로 neutral prior와 가중 평균.
+   Artist weight는 Track의 0.45로 반영한다.
 4. Energy/Warmth/Dreaminess/Darkness/Tension 각 0~100
 5. 해석된 weight coverage·tag 개수·artist source로 confidence 계산
-6. warmth→hue, energy→saturation, darkness→lightness,
-   dreaminess→lavender blend/softness, tension→accent contrast
+6. Genre/Mood hue anchors → sqrt(count) 기반 원형 가중 평균으로 base/supporting hue.
+   energy→saturation, darkness→lightness, dreaminess→softness/spread,
+   tension→accent contrast, warmth→최대 8° 보정. Artist saturation/contrast도 낮춘다.
 7. HSL clamp → 5 HEX, 대비에 맞는 흑백 텍스트, deterministic keywords/설명
 
 음향 신호 자체의 분석이 아니며 색상 관계도 TONESCAPE의 heuristic mapping이다.
@@ -56,15 +59,18 @@ Build: `pip install -r requirements.txt`
 Start: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 
 `render.yaml`: main, Python runtime, healthCheckPath=/health,
-LASTFM_API_KEY sync:false. 실제 계정 연결·배포·push는 **아직 수행하지 않았다**.
+LASTFM_API_KEY sync:false. 이번 Color Engine 수정에서는 commit/push나 배포 설정 변경을
+수행하지 않았다. 사용자가 확인한 기존 배포와 이번 로컬 수정의 반영 여부를 구분해야 한다.
 
 ## Local verification / Test 결과
 
 상세 실행 기록과 한계는 [VERIFICATION.md](VERIFICATION.md)에 기록한다.
-순수 엔진 테스트와 문법 검사는 수행했다. 명시적 stdlib fixture 서버를 실행하여
-HTTP 검색/분석/빈 결과를 확인했다. 이것은 실제 FastAPI 또는 브라우저 검증이 아니다.
-관리형 환경의 설치 차단으로 backend 테스트/실제 앱 실행은 아직 미완료이며,
-Chrome 제어 자동 승인 거부로 화면/모바일/HEX clipboard 검증도 미완료이다.
+Color Engine v2 수정에서는 기존 Backend를 포함한 **전체 pytest 70개가 통과**했다.
+장르별 hue 분리·원형 wraparound·반대색 동률·Artist scaling 부동소수점 회귀·재현성·
+HEX/텍스트 대비를 검사했다. 기존 초기 세션의 설치 제약은 현재 `.venv`에서는 해소되어 있다.
+네트워크 오류 때문에 제공된 두 tag list에 합성 count=100을 적용해 전/후를 비교했다.
+상세 팔레트·한계는 [COLOR_ENGINE_V2.md](COLOR_ENGINE_V2.md)에 기록한다.
+이번 수정의 브라우저/모바일/HEX clipboard 검증은 수행하지 않았다.
 1페이지 보고서에는 미수행 항목을 성공했다고 쓰지 말고 실제 배포 후 기록으로 보완한다.
 
 ## 배포 후 확인할 항목

@@ -130,7 +130,9 @@ def test_artist_fallback_is_labeled_and_lowers_confidence():
     with client_for(handler) as client:
         result = client.get("/api/analyze", params={"artist": "Beach House", "track": "Space Song"}).json()
         assert result["source"] == "artist"
-        assert result["analysis"]["confidence"] <= 70
+        assert result["analysis"]["confidence"] <= 45
+        assert result["analysis"]["source_weight"] == 0.45
+        assert "45%" in result["analysis"]["notice"]
         assert any("Artist" in w for w in result["warnings"])
 
 

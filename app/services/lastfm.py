@@ -207,7 +207,7 @@ class LastFMService:
                 artist_analysis = analyze_tags(artist_tags, source="artist")
                 if len(artist_analysis["contributions"]) > len(analysis["contributions"]):
                     raw_tags, analysis, source = artist_tags, artist_analysis, "artist"
-                    warnings.append("Artist tags were used because this track had too few interpretable tags. They may not describe this particular song.")
+                    warnings.append("Artist tags were used because this track had too few interpretable tags. Artist fallback uses 45% source influence and lower confidence because it may not describe this particular song.")
             except LastFMError as error:
                 if error.code in ("invalid_api_key", "setup_required"):
                     raise

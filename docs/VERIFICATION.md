@@ -1,5 +1,22 @@
 # TONESCAPE verification record
 
+## Latest: Color Engine v2 correction
+
+The following supersedes the old dependency-blocked test status for this local
+checkout. Existing `.venv` now contains FastAPI/httpx/dotenv/pytest.
+
+- Baseline: **48 passed**. After changes: **70 passed** including Backend tests,
+  using `.\.venv\Scripts\python -m pytest -q -p no:cacheprovider`.
+- One existing upstream Starlette/httpx deprecation warning remains.
+- A configured Last.fm key was detected without displaying its value. Both
+  requested live track comparisons were attempted and returned `network_error`.
+- Before/after comparison uses supplied tag lists with equal synthetic counts,
+  not deployed/live response captures. See [COLOR_ENGINE_V2.md](COLOR_ENGINE_V2.md).
+- No server start, browser operation, commit, push or deployment was needed/performed
+  for this algorithm correction. Existing UI and .env were preserved.
+
+## Historical: initial implementation session
+
 Date: 2026-10-27. Workspace: `D:\univ\3-1\OpenSW\HW2`.
 Python 3.13.1; installed global pytest 9.1.1; Node 24.13.0.
 
