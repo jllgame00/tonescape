@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111310">
+  <meta name="description" content="Search a song. See its color. Turn Last.fm community tags into a personal color study with TONESCAPE.">
+  <title>TONESCAPE — Search a song. See its color.</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="/static/js/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#search-input">Skip to search</a>
+  <div class="ambient" aria-hidden="true"></div>
+  <header class="masthead wrap">
+    <a class="brand" href="/" aria-label="TONESCAPE home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>TONESCAPE</a>
+    <a class="quiet-link" href="#the-method">Sound, translated.</a>
+  </header>
+
+  <main class="wrap">
+    <section class="hero" aria-labelledby="hero-title">
+      <p class="eyebrow">A different way to discover music</p>
+      <h1 id="hero-title">TONESCAPE<span class="title-dot">®</span></h1>
+      <p class="tagline">Search a song.<br class="mobile-break"> See its <em>color.</em></p>
+      <p class="hero-description">Every song has an atmosphere.<br>Find the five colors that live in yours.</p>
+      <form id="search-form" class="search-form" role="search">
+        <label class="sr-only" for="search-input">Search a song or artist</label>
+        <div class="search-box">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><circle cx="10.7" cy="10.7" r="6.7"></circle><path d="m16 16 5 5"></path></svg>
+          <input id="search-input" name="q" type="search" placeholder="Search a song or artist..." maxlength="200" autocomplete="off" required>
+          <button id="search-submit" type="submit">Explore <span aria-hidden="true">↗</span></button>
+        </div>
+        <fieldset class="search-options"><legend class="sr-only">Search type</legend><label><input type="radio" name="mode" value="track" checked><span>Songs</span></label><label><input type="radio" name="mode" value="artist"><span>Artists</span></label><span class="search-hint">Choose Artists to find their top tracks</span></fieldset>
+      </form>
+      <p id="setup-message" class="setup-message" hidden></p>
+      <div class="color-study" aria-label="Illustrative color study, not an analyzed song">
+        <div class="study-swatch"><span>01</span></div><div class="study-swatch"><span>02</span></div><div class="study-swatch"><span>03</span></div><div class="study-swatch"><span>04</span></div><div class="study-swatch"><span>05</span></div>
+      </div>
+      <p class="study-caption"><span>Music → Mood → Color</span><span>An exploration, not a measurement</span></p>
+    </section>
+
+    <p id="status" class="status" role="status" aria-live="polite" aria-atomic="true"></p>
+    <section id="search-section" class="search-section" aria-labelledby="search-title" hidden>
+      <div class="section-heading"><h2 id="search-title">Find your track</h2><span id="result-count" class="muted"></span></div>
+      <div id="search-results" class="search-results"></div>
+    </section>
+
+    <section id="analysis-result" class="analysis-result" aria-labelledby="track-title" hidden>
+      <div class="section-heading result-heading"><p class="eyebrow">Your color study / <span id="source-label">Track tags</span></p><button type="button" id="back-to-results" class="text-button">← Search results</button></div>
+      <div class="record-layout">
+        <div id="artwork" class="artwork"><div class="vinyl" aria-hidden="true"><div class="vinyl-label"><span>T</span><small>TONESCAPE</small></div></div><span class="art-caption">An atmosphere in five colors</span></div>
+        <div class="track-story">
+          <p class="eyebrow">The sound of</p>
+          <h2 id="track-title" tabindex="-1"></h2>
+          <p id="track-artist" class="track-artist"></p>
+          <p id="track-album" class="track-album muted"></p>
+          <div id="keywords" class="keywords" aria-label="Mood keywords"></div>
+          <div class="track-divider"></div>
+          <p class="small-label">Community tags</p>
+          <div id="top-tags" class="tags"></div>
+          <a id="lastfm-link" class="quiet-link external" target="_blank" rel="noopener noreferrer" hidden>View on Last.fm ↗</a>
+        </div>
+      </div>
+
+      <section class="palette-section" aria-labelledby="palette-title">
+        <div class="section-heading"><div><p class="eyebrow">01 / The palette</p><h3 id="palette-title">A spectrum of your song.</h3></div><span class="muted palette-hint">Click a color to copy HEX ↗</span></div>
+        <div id="palette" class="palette"></div>
+      </section>
+
+      <div class="analysis-grid">
+        <section class="mood-section" aria-labelledby="mood-title"><p class="eyebrow">02 / The mood</p><h3 id="mood-title">Behind the atmosphere.</h3><div id="axes" class="axes"></div><div class="confidence"><span>Tag confidence</span><strong id="confidence-value"></strong></div><p id="confidence-notice" class="muted notice"></p><p id="warnings" class="muted notice"></p></section>
+        <section class="explanation" aria-labelledby="explanation-title"><p class="eyebrow">03 / The interpretation</p><h3 id="explanation-title">Why these colors?</h3><p id="color-explanation"></p><details><summary>See how the tags contributed <span aria-hidden="true">+</span></summary><p class="muted details-intro">Shares use square-root-scaled counts. Axis points include a small neutral baseline. Family matches receive less weight.</p><div id="contributions"></div></details><p class="interpretation-note">A creative interpretation of community tags.<br>No audio analysis. No AI mood prediction.</p></section>
+      </div>
+    </section>
+
+    <section id="the-method" class="method" aria-labelledby="method-title"><p class="eyebrow">The method</p><h2 id="method-title">From collective listening<br>to a color <em>language.</em></h2><div class="method-steps"><article><span>01 — Discover</span><p>Find a song in Last.fm’s music catalogue.</p></article><article><span>02 — Interpret</span><p>Weighted genre and mood tags shape five axes. Sparse tags mean lower confidence.</p></article><article><span>03 — Translate</span><p>Warmth, energy, darkness, dreaminess and tension become hue, saturation, lightness and contrast.</p></article></div></section>
+  </main>
+  <footer class="footer wrap"><span class="brand">TONESCAPE</span><p>Built around music. Made for your imagination.</p><a href="https://www.last.fm" target="_blank" rel="noopener noreferrer">Music metadata by Last.fm ↗</a></footer>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <noscript><p class="noscript">Enable JavaScript to search songs and explore their palettes.</p></noscript>
+</body>
+</html>
