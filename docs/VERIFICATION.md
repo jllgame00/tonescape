@@ -1,6 +1,23 @@
 # TONESCAPE verification record
 
-## Latest: Color Engine v2 correction
+## Latest: Color Engine v3 family composition
+
+- Baseline: **70 passed**; final full suite: **100 passed**, one existing
+  Starlette/httpx deprecation warning. Command:
+  `.\.venv\Scripts\python -m pytest -q -p no:cacheprovider`.
+- Added generic hybrid/family/role allocation cases, preserved Backend mocks,
+  unknown/empty/source behavior and text readability tests.
+- Captured actual v2 output before edits for 8 generic profiles, compared with
+  v3 using identical synthetic count=100 evidence. Full neutral palette preserved.
+- Four configured-key live attempts returned `network_error`; these comparison
+  results are explicitly fixtures, not captured Last.fm/production results.
+- Independent review findings were reproduced and fixed: joint Secondary/Accent
+  allocation retains a feasible third family; source discount cannot switch
+  the musical identity of fallback contrast endpoints.
+- Details and complete palette table: [COLOR_ENGINE_V3.md](COLOR_ENGINE_V3.md).
+- No server/browser/deployment operation, Git commit/push or secret change.
+
+## Historical: Color Engine v2 correction
 
 The following supersedes the old dependency-blocked test status for this local
 checkout. Existing `.venv` now contains FastAPI/httpx/dotenv/pytest.

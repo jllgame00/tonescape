@@ -29,8 +29,8 @@ Last.fm 외부 HTTP만 MockTransport로 대체하고 parser·fallback·routes는
 - LASTFM_API_KEY는 서버 환경변수에만 저장. .env는 Git ignore.
 - Timeout, User-Agent, 오류 분류, TTL cache로 외부 API 실패에 대응한다.
 
-공식 문서는 확인했다. Color Engine v2 검증 시 키가 설정되어 있었으나 두 곡의 실제
-조회는 네트워크 오류로 실패했다. **이번 수정의 실제 정상 API 응답은 미검증**이다.
+공식 문서는 확인했다. Color Engine v3 검증 시 키가 설정되어 있었으나 네 유형의 곡 조회는
+모두 네트워크 오류로 실패했다. **이번 수정의 실제 정상 API 응답은 미검증**이다.
 Mock fixture는 공식 sample structure를 참고한 합성 데이터이며 라이브 캡처가 아니다.
 
 ## Mood Engine 핵심
@@ -41,9 +41,12 @@ Mock fixture는 공식 sample structure를 참고한 합성 데이터이며 라�
    Artist weight는 Track의 0.45로 반영한다.
 4. Energy/Warmth/Dreaminess/Darkness/Tension 각 0~100
 5. 해석된 weight coverage·tag 개수·artist source로 confidence 계산
-6. Genre/Mood hue anchors → sqrt(count) 기반 원형 가중 평균으로 base/supporting hue.
-   energy→saturation, darkness→lightness, dreaminess→softness/spread,
-   tension→accent contrast, warmth→최대 8° 보정. Artist saturation/contrast도 낮춘다.
+6. Hybrid tag를 여러 genre family에 나눠 반영하고 sqrt(count) 기반 family score를 normalize.
+   Family를 한 hue로 합치지 않고 Primary/Secondary/Accent에 2~3개의 identity를 보존한다.
+   Circular mean은 동일 family 내부에서만 사용한다. Secondary와 Accent는 함께 탐색한다.
+   energy→saturation, darkness→lightness, dreaminess→softness/tonal spread,
+   tension→지원되는 contrast 선택, warmth→각 anchor 최대 8° 보정.
+   Artist는 family 분포를 보존하고 saturation/lightness contrast/confidence를 낮춘다.
 7. HSL clamp → 5 HEX, 대비에 맞는 흑백 텍스트, deterministic keywords/설명
 
 음향 신호 자체의 분석이 아니며 색상 관계도 TONESCAPE의 heuristic mapping이다.
@@ -65,11 +68,12 @@ LASTFM_API_KEY sync:false. 이번 Color Engine 수정에서는 commit/push나 �
 ## Local verification / Test 결과
 
 상세 실행 기록과 한계는 [VERIFICATION.md](VERIFICATION.md)에 기록한다.
-Color Engine v2 수정에서는 기존 Backend를 포함한 **전체 pytest 70개가 통과**했다.
-장르별 hue 분리·원형 wraparound·반대색 동률·Artist scaling 부동소수점 회귀·재현성·
-HEX/텍스트 대비를 검사했다. 기존 초기 세션의 설치 제약은 현재 `.venv`에서는 해소되어 있다.
-네트워크 오류 때문에 제공된 두 tag list에 합성 count=100을 적용해 전/후를 비교했다.
-상세 팔레트·한계는 [COLOR_ENGINE_V2.md](COLOR_ENGINE_V2.md)에 기록한다.
+Color Engine v3 수정에서는 기존 Backend를 포함한 **전체 pytest 100개가 통과**했다.
+기존 circular/axis/source/fallback 검사를 유지하고 hybrid evidence 보존, family별 비중,
+2~3개의 role 분리, single-family restraint, 3-family 대안 탐색을 추가 검증했다.
+기존 초기 세션의 설치 제약은 현재 `.venv`에서는 해소되어 있다.
+라이브 네 유형의 조회가 네트워크 오류로 실패하여 generic profile 8개와 합성 count=100으로 비교했다.
+상세 팔레트·한계는 [COLOR_ENGINE_V3.md](COLOR_ENGINE_V3.md)에 기록한다.
 이번 수정의 브라우저/모바일/HEX clipboard 검증은 수행하지 않았다.
 1페이지 보고서에는 미수행 항목을 성공했다고 쓰지 말고 실제 배포 후 기록으로 보완한다.
 

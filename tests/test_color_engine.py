@@ -97,7 +97,13 @@ def test_profiles_are_deterministic_diverse_valid_and_readable(names):
     result = analyze_tags(data(names))
     assert result == analyze_tags(list(reversed(data(names))))
     hues = [c["hsl"][0] for c in result["palette"]]
-    assert max(distance(a, b) for a, b in itertools.combinations(hues, 2)) > 20
+    meaningful = [f for f in result["genre_families"] if f["meaningful"]]
+    if len(meaningful) > 1:
+        assert max(distance(a, b) for a, b in itertools.combinations(hues, 2)) > 20
+    elif result["axes"]["energy"] < 60 and result["axes"]["tension"] < 60:
+        # v3 preserves single-family music instead of forcing v2's minimum
+        # spread even when all tags describe the same quiet/dream identity.
+        assert max(distance(a, b) for a, b in itertools.combinations(hues[:3], 2)) <= 30
     for color in result["palette"]:
         assert re.fullmatch(r"#[0-9A-F]{6}", color["hex"])
         rgb = [int(color["hex"][i:i+2], 16) / 255 for i in (1, 3, 5)]

@@ -7,12 +7,12 @@ gradient로 변환하는 음악 탐색 웹 서비스입니다. 동일한 태그 
 결과를 만듭니다. 음원이나 Spotify Audio Features를 사용하지 않으며, runtime LLM
 호출도 없습니다.
 
-> **Color Engine v2 검증:** 기존 기능을 포함한 전체 pytest **70 tests PASS**.
-> 태그 기반 circular hue 합성으로 장르별 색상을 분리하고 Artist fallback 영향을 낮췄습니다.
-> 설정된 키로 두 곡의 라이브 조회를 시도했지만 실행 환경의 네트워크 오류로 실패했습니다.
-> 제공된 태그 목록·동일한 합성 count로 변경 전후를 비교했습니다. 이번 수정의 실제 배포,
+> **Color Engine v3 검증:** 기존 기능을 포함한 전체 pytest **100 tests PASS**.
+> Family별 기여도와 2~3개의 anchor를 유지해 복합 장르의 색 구성을 보존합니다.
+> 설정된 키로 네 유형의 곡을 조회했지만 실행 환경의 네트워크 오류로 실패했습니다.
+> 일반 태그 profile·동일한 합성 count로 변경 전후를 비교했습니다. 이번 수정의 실제 배포,
 > 브라우저 화면 검증은 수행하지 않았습니다.
-> [v2 비교·검증](docs/COLOR_ENGINE_V2.md) / [세션별 검증 기록](docs/VERIFICATION.md).
+> [v3 비교·검증](docs/COLOR_ENGINE_V3.md) / [v2 기록](docs/COLOR_ENGINE_V2.md) / [세션별 검증 기록](docs/VERIFICATION.md).
 
 ## 기능
 
@@ -37,7 +37,7 @@ Browser: HTML + CSS + Vanilla JS
     -> track.getInfo + track.getTopTags (parallel)
     -> if sparse: artist.getTopTags
     -> normalize / weighted mood analysis
-    -> tags -> weighted circular base/supporting hue
+    -> tags -> split hybrid votes -> normalized genre families -> independent anchors
     -> 5 Mood Axes + source influence -> HSL -> HEX + gradient + explanation
     -> JSON -> Browser renders text, bars, colors
 ```
@@ -47,7 +47,9 @@ app/main.py                    Routes, lifecycle, validation, safe errors, heade
 app/services/lastfm.py          HTTP adapter, parsing, TTL cache, fallback orchestration
 app/services/tag_lexicon.py     Mood vectors, aliases, weak/non-mood tags
 app/services/mood_engine.py     Pure deterministic analysis and color generation
-app/services/color_engine.py    Circular hue identity and mood-adjusted palette
+app/services/color_engine.py    Color math, property mapping, legacy v2 diagnostics
+app/services/genre_families.py  Explicit musical families, hybrid shares and anchors
+app/services/palette_composition.py Family aggregation and joint role allocation
 app/templates/index.html       Page structure
 app/static/css/style.css       Responsive visual system
 app/static/js/app.js            Search/select UI and clipboard
@@ -56,6 +58,7 @@ tests/test_backend.py           Real routes/adapter with mocked external HTTP
 tools/ui_fixture_server.py     Explicit standalone UI fixture; NOT production backend
 tools/verify_live.py            Real-server /health -> search -> analysis smoke check
 tools/compare_color_engine.py   Public tag/analysis snapshot with the configured key
+tools/compare_genre_profiles.py Offline fixture comparison (JSON + HTML)
 .github/workflows/ci.yml        Offline test and syntax checks on main/PR
 render.yaml                    Render Web Service blueprint
 docs/HW2_REPORT_NOTES.md        Coursework report notes
@@ -65,7 +68,7 @@ docs/HW2_REPORT_NOTES.md        Coursework report notes
 
 Lexicon vector 순서는 `(Energy, Warmth, Dreaminess, Darkness, Tension)`이며 0~100
 범위입니다. rock, indie rock, shoegaze, ambient, metal, jazz, electronic, folk,
-hip hop, rnb, classical, post-punk, lo-fi 등 66개 genre/mood를 정의합니다.
+hip hop, rnb, classical, post-punk, lo-fi, neo-soul, synth funk, swing 등 75개 genre/mood를 정의합니다.
 각 vector는 TONESCAPE의 편집적 heuristic이며 객관적인 감정 측정값이 아닙니다.
 
 1. **정규화:** Unicode NFKC, casefold, 공백·구두점 정리. `HIP-HOP` → `hip hop`,
@@ -98,46 +101,52 @@ hip hop, rnb, classical, post-punk, lo-fi 등 66개 genre/mood를 정의합니�
 5-axis vector와 최종 axis에 보태진 점수를 제공합니다. 기여도 share는 baseline을 제외한
 사용 태그 사이 비율이고, axis point는 baseline을 포함한 분모를 사용합니다.
 
-## Tag identity + Mood → Color (engine v2)
+## Genre composition + Mood → Color (engine v3)
 
-모든 lexicon 항목에 primary/supporting hue anchor와 hue influence를 명시합니다.
-Rock/metal은 red/crimson, ambient/electronic은 cyan/blue, folk/acoustic은 olive/ochre,
-dream pop/shoegaze는 lavender, jazz/soul은 amber/burgundy 계열입니다. `dreamy` 등의
-넓은 mood descriptor는 0.2~0.3의 약한 hue 투표를 하고 `energetic`, `dark`,
-`instrumental`은 hue 투표 없이 축 특성만 조정합니다. 국가/성별/seen live/90s 등은 제외합니다.
+V2의 `여러 tag hue → 하나의 평균 → 모든 role` 구조는 복합 장르를 압축했습니다.
+V3는 모든 tag에 **음악 family와 hue influence**를 선언하고, hybrid tag를 여러 family에
+나눠 반영합니다. `psychedelic soul`은 soul 0.55 / psychedelic 0.45, `synth funk`는
+funk 0.6 / electronic 0.4입니다. 각 tag의 family share 합계는 1로 근거가 중복되지 않습니다.
 
-`hue_weight = sqrt(count) × match_quality × hue_influence`로 단위 원 위에서 합성합니다:
+`family_score = Σ sqrt(count) × match_quality × hue_influence × family_share`를
+normalize합니다. 원형 hue 합성은 **동일 family 안에서만** 수행합니다. Soul의 burgundy,
+Funk의 gold, Psychedelic의 teal/violet 같은 다른 identity는 서로 평균내지 않습니다.
+넓은 mood descriptor는 약한 hue influence를 사용하고, energetic/dark/instrumental은
+색상 특성만 조정합니다. 국가·성별·연대 등은 계속 제외합니다.
 
-```text
-x = Σ(weight × cos(hue))
-y = Σ(weight × sin(hue))
-base_hue = atan2(y, x) mod 360
-coherence = sqrt(x² + y²) / Σweight
-```
+Primary는 최상위 family, Secondary는 다음 meaningful family의 anchor를 사용합니다.
+Accent는 가능하면 세 번째 family를 사용하며 **Secondary 대안과 Accent를 함께 탐색**해
+불필요하게 세 번째 identity를 버리지 않습니다. 전체 hue evidence의 4% 이상이면
+minor accent 후보가 되고 15% 이상이면 strong family로 표시합니다. 작은 미지정 tag가
+role을 차지하는 것은 방지하되, dominant family가 크다는 이유로 hybrid flavor를 다시 지우지 않습니다.
 
-350°와 10°는 0° 부근이 됩니다. Coherence가 0.2 미만이면 거의 반대인 투표가
-상쇄된 경우이므로 가장 강한 태그를 사용하며, 동률은 낮은 hue와 canonical tag 이름으로
-결정합니다. 이 선택과 근거를 metadata/설명에 표시합니다. 입력 정렬과 `math.fsum`으로
-순서에 무관한 결과를 유지합니다. Supporting anchor도 같은 방법으로 합성한 뒤,
-각 role의 hue spread 규칙에 반영합니다. Anchor가 최종 swatch hue와 항상 같다는 뜻은 아닙니다.
+실제 다른 family가 있으면 30° 분리를 목표로 declared alternate anchor를 우선 사용하고,
+가까운 identity에는 최대 15°의 composition 보정을 허용합니다. Single-family/낮은 에너지
+음악은 tonal하게 유지합니다. 강한 energy/tension일 때는 그 family에 **이미 선언한**
+contrast anchor를 사용할 수 있습니다. Soft는 Primary/Secondary의 원형 blend이며,
+Background는 낮은 명도·채도의 dominant tint입니다. Neutral fallback의 5색은 v2와 동일합니다.
 
-동일한 source factor는 원형 평균에서 수학적으로 상쇄됩니다. **Hue 투표는 source와
-독립적으로 계산**하여 0.45 곱셈의 미세한 반올림이 동률 승자를 바꾸지 않도록 합니다.
-Artist 영향력 감소는 axis prior, 실제 saturation/contrast 및 confidence에 적용합니다.
-곡명·아티스트명은 색 생성 입력이 아닙니다.
+Family 분포와 anchor 선택은 source와 독립적입니다. Contrast endpoint 선택에도 할인 전
+tag mood를 사용하며, Artist 0.45 할인은 표시 axis의 neutral prior, 실제 saturation,
+lightness contrast, confidence에 적용합니다. 서로 다른 source 때문에 family identity가
+바뀌지 않습니다. 곡명·아티스트명은 색 생성 입력이 아닙니다.
+
+`genre_families`에는 비중·근거 tag·anchor가, `palette_anchors`에는 role별 family,
+원본 anchor와 사용한 hue, tonal/family contrast 여부가 들어갑니다. 기존 `color_identity`의
+global mean은 **v2 진단용 값**으로만 유지되며 v3 palette 생성 입력이 아닙니다.
 
 입력 axis는 0~1로 환산한 뒤 HSL 색상 특성을 조정합니다.
 
 | Axis | 색상에 미치는 영향 |
 | --- | --- |
-| Warmth | 이미 계산한 base hue를 warm/cool 방향으로 최대 8°만 보정 |
+| Warmth | 각 anchor를 warm/cool 방향으로 최대 8°만 보정; identity/diversity와 충돌하면 보정을 줄임 |
 | Energy | saturation `12 + source_weight × (12 + 56e) × (1 - 0.12d)`: muted → vivid |
 | Darkness | base lightness `68 - 37k`; Background는 `14 - 9k` |
-| Dreaminess | Primary hue를 유지하고 supporting spread·채도를 낮추며 Soft 명도를 높임 |
-| Tension | Accent hue/lightness distance 증가; Artist source는 contrast를 낮춤 |
+| Dreaminess | Family를 덮어쓰지 않고 tonal spread·채도를 낮추며 Soft 명도를 높임 |
+| Tension | 지원되는 Accent 선택과 lightness contrast 조정; Artist source는 명도 대비를 낮춤 |
 
-Primary는 musical identity, Secondary는 supporting anchor 방향의 관련색,
-Accent는 energy/tension에 따른 대비색, Soft는 저채도·고명도, Background는 저명도·저채도입니다.
+Primary/Secondary/Accent는 각 family identity, Soft는 저채도·고명도,
+Background는 저명도·저채도입니다.
 각 role에 hue/saturation/lightness offset을 적용하여 다섯 색을 만들며 채도·명도는
 clamp합니다. Background는 같은 hue 계열의 낮은 명도를 사용합니다. Gradient의
 중간 stop도 Dreaminess로 바뀝니다. HEX 양자화 후 밝기를 계산해 흑백 중 대비가 높은
@@ -209,7 +218,7 @@ LASTFM_API_KEY=your_own_key_here
 | `GET /api/analyze?artist=Cher&track=Believe` | `track`, `source`, `tags`, `warnings`, `analysis` |
 
 `analysis`: engine_version, axes, confidence, coverage, fallback, contributions,
-source_weight, color_identity (base/supporting/primary hue, coherence, hue votes, tie-break metadata),
+source_weight, color_identity (legacy 진단 + composition_method), genre_families, palette_anchors,
 keywords, palette, gradient, explanation, notice. API 명세는 `/docs`에서 확인할 수 있습니다.
 오류는 `{ "error": { "code": "...", "message": "..." } }`입니다.
 
@@ -239,6 +248,10 @@ node --check app/static/js/app.js
 Backend 테스트는 외부 HTTP만 httpx MockTransport로 대체하며 실제 parser, cache,
 fallback, mood engine과 FastAPI routes를 통과합니다. 키나 인터넷은 테스트에 필요 없지만
 의존성 **최초 설치**에는 PyPI 접근이 필요합니다. CI도 이 테스트를 수행하도록 구성했습니다.
+
+일반 profile의 색 구성을 비교하려면 `python -m tools.compare_genre_profiles`를 실행합니다.
+`artifacts/color_engine_v3_comparison.html`과 JSON이 생성됩니다. 이 세션에서 저장한 v2
+baseline이 없으면 현재 결과만 표시합니다. 합성 count=100 fixture이며 라이브 결과가 아닙니다.
 
 키를 설정한 실제 Uvicorn 서버를 실행한 다음 별도 터미널에서:
 

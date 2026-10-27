@@ -1,0 +1,31 @@
+{
+  "soul_funk": {"source": "track", "tags": [
+    {"name":"neo-soul","count":100}, {"name":"psychedelic soul","count":100},
+    {"name":"synth funk","count":100}, {"name":"funk","count":100},
+    {"name":"soul","count":100}, {"name":"p-funk","count":100},
+    {"name":"r&b","count":100}, {"name":"smooth soul","count":100}
+  ]},
+  "heavy": {"source": "track", "tags": [
+    {"name":"rock","count":100}, {"name":"alternative rock","count":100},
+    {"name":"metal","count":100}, {"name":"rapcore","count":100}, {"name":"rap metal","count":100}
+  ]},
+  "jazz_swing": {"source": "track", "tags": [
+    {"name":"jazz","count":100}, {"name":"swing","count":100},
+    {"name":"vocal jazz","count":100}, {"name":"easy listening","count":100}
+  ]},
+  "ambient_dream": {"source": "track", "tags": [
+    {"name":"ambient","count":100}, {"name":"dreamy","count":100}, {"name":"ethereal","count":100}
+  ]},
+  "electronic": {"source": "track", "tags": [
+    {"name":"electronic","count":100}, {"name":"techno","count":100}, {"name":"synth","count":100}
+  ]},
+  "folk": {"source": "track", "tags": [
+    {"name":"folk","count":100}, {"name":"acoustic","count":100}, {"name":"singer-songwriter","count":100}
+  ]},
+  "artist_heavy": {"source": "artist", "tags": [
+    {"name":"heavy metal","count":100}, {"name":"glam metal","count":100},
+    {"name":"k-rock","count":100}, {"name":"pop","count":100},
+    {"name":"folk metal","count":100}, {"name":"hard rock","count":100}
+  ]},
+  "neutral": {"source": "track", "tags": []}
+}

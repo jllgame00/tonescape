@@ -5,6 +5,7 @@ Keep multi-word genres distinct before falling back to genre families.
 """
 
 from typing import NamedTuple
+from app.services.genre_families import FamilyVote, TAG_FAMILIES
 
 AXES = ("energy", "warmth", "dreaminess", "darkness", "tension")
 LEXICON = {
@@ -74,6 +75,15 @@ LEXICON = {
     "rapcore": (94, 45, 18, 72, 94),
     "glam metal": (87, 57, 30, 55, 75),
     "folk metal": (84, 65, 42, 63, 78),
+    "neo soul": (50, 82, 65, 38, 35),
+    "psychedelic soul": (55, 75, 85, 45, 42),
+    "synth funk": (80, 65, 58, 32, 52),
+    "p funk": (85, 78, 62, 28, 55),
+    "smooth soul": (35, 86, 62, 28, 18),
+    "vocal jazz": (32, 78, 50, 32, 25),
+    "swing": (64, 82, 35, 22, 38),
+    "easy listening": (20, 74, 58, 18, 12),
+    "synth": (74, 34, 65, 48, 58),
 }
 
 
@@ -82,6 +92,7 @@ class HueProfile(NamedTuple):
     supporting: float
     family: str
     influence: float = 1.0
+    genre_families: tuple[FamilyVote, ...] = ()
 
 
 # Hue identity is independent of the mood axes. All entries have an explicit
@@ -154,7 +165,17 @@ HUE_PROFILES = {
     "rapcore": HueProfile(8, 35, "burnt red"),
     "glam metal": HueProfile(15, 40, "burnt red"),
     "folk metal": HueProfile(25, 65, "burnt orange"),
+    "neo soul": HueProfile(350, 45, "burgundy"),
+    "psychedelic soul": HueProfile(350, 175, "burgundy"),
+    "synth funk": HueProfile(50, 205, "gold"),
+    "p funk": HueProfile(50, 285, "gold"),
+    "smooth soul": HueProfile(350, 45, "burgundy"),
+    "vocal jazz": HueProfile(345, 42, "burgundy"),
+    "swing": HueProfile(42, 350, "amber"),
+    "easy listening": HueProfile(185, 42, "muted teal", 0.4),
+    "synth": HueProfile(205, 265, "electric blue"),
 }
+HUE_PROFILES = {tag: profile._replace(genre_families=TAG_FAMILIES[tag]) for tag, profile in HUE_PROFILES.items()}
 ALIASES = {
     "hiphop": "hip hop", "r b": "rnb", "r and b": "rnb",
     "rhythm and blues": "rnb", "rhythm blues": "rnb",

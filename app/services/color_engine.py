@@ -1,4 +1,7 @@
-"""Tag identity -> circular hue; mood -> palette properties. No song metadata.
+"""Color math and property mapping; v2 global hue is retained as a diagnostic.
+
+Production v3 composition is in palette_composition.py and aggregates musical
+families separately. The global diagnostic below never drives its palette.
 
 Primary/supporting anchors are editorial heuristics. Unit-circle means respect
 the red seam; low-resultant mixtures use the strongest vote deterministically

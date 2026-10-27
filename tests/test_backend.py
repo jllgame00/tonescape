@@ -120,6 +120,9 @@ def test_analyze_uses_track_tags_and_album_image():
         assert result["analysis"]["axes"]["dreaminess"] > 85
         assert result["analysis"]["fallback"] is False
         assert len(result["analysis"]["contributions"]) == 2
+        assert result["analysis"]["engine_version"] == "3.0"
+        assert result["analysis"]["genre_families"][0]["family"] == "dream"
+        assert result["analysis"]["palette_anchors"]["Primary"]["family"] == "dream"
 
 
 def test_artist_fallback_is_labeled_and_lowers_confidence():
